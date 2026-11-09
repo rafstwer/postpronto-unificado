@@ -14,8 +14,22 @@ function CallbackPage() {
 
   useEffect(() => {
     (async () => {
-      // Supabase com PKCE retorna ?code= — exchangeCodeForSession troca por sessão.
       const url = new URL(window.location.href);
+      // 1) Lovable/Supabase pode voltar com tokens no hash ou query
+      const hash = new URLSearchParams(url.hash.replace(/^#/, ""));
+      const access_token = hash.get("access_token") ?? url.searchParams.get("access_token");
+      const refresh_token = hash.get("refresh_token") ?? url.searchParams.get("refresh_token");
+      if (access_token && refresh_token) {
+        const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+        if (error) {
+          setMsg("Erro ao confirmar. Voltando para o login…");
+          setTimeout(() => navigate({ to: "/auth" }), 1200);
+          return;
+        }
+        navigate({ to: "/kits" });
+        return;
+      }
+      // 2) Fluxo PKCE (?code=)
       const code = url.searchParams.get("code");
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
@@ -24,10 +38,10 @@ function CallbackPage() {
           setTimeout(() => navigate({ to: "/auth" }), 1200);
           return;
         }
-      } else {
-        // Fluxo implícito: token vem no hash (#access_token=...) — getSession resolve.
-        await supabase.auth.getSession();
+        navigate({ to: "/kits" });
+        return;
       }
+      // 3) Fallback: sessão já gravada pelo broker
       const { data } = await supabase.auth.getSession();
       if (data.session) {
         navigate({ to: "/kits" });
