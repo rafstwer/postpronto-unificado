@@ -45,22 +45,37 @@ function AuthPage() {
 
   const google = async () => {
     setLoading(true);
-    try {
-      const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
-      if (r.error) {
-        toast.error("Não foi possível entrar com Google. Tente e-mail/senha.");
+    const host = window.location.hostname;
+    const isLovable = host.endsWith(".lovable.app") || host === "localhost" || host === "127.0.0.1";
+    if (isLovable) {
+      try {
+        const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
+        if (r.error) {
+          toast.error("Não foi possível entrar com Google. Tente e-mail/senha.");
+          setLoading(false);
+          return;
+        }
+        if (r.redirected) {
+          setLoading(false);
+          return;
+        }
         setLoading(false);
-        return;
-      }
-      if (r.redirected) {
+        navigate({ to: "/kits" });
+      } catch {
+        toast.error("Erro no Google. Tente e-mail/senha.");
         setLoading(false);
-        return;
       }
-      setLoading(false);
-      navigate({ to: "/kits" });
-    } catch {
-      toast.error("Erro no Google. Tente e-mail/senha.");
-      setLoading(false);
+      return;
+    }
+    // Cloudflare (workers.dev): broker Lovable rejeita redirect_uri externo
+    // ("redirect_uri is not allowed" em oauth.lovable.app), então usamos Supabase.
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin + "/auth/callback" },
+    });
+    setLoading(false);
+    if (error) {
+      toast.error("Google indisponível: ative o provider Google no Supabase e libere /auth/callback. Tente e-mail/senha.");
     }
   };
 
