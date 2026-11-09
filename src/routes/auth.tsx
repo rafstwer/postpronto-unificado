@@ -75,7 +75,13 @@ function AuthPage() {
     });
     setLoading(false);
     if (error) {
-      toast.error("Google indisponível: ative o provider Google no Supabase e libere /auth/callback. Tente e-mail/senha.");
+      // validation_failed / missing OAuth secret = provider Google desligado ou sem Client ID/Secret no Supabase
+      const msg = error.message ?? "";
+      if (msg.toLowerCase().includes("unsupported provider") || msg.toLowerCase().includes("oauth secret")) {
+        toast.error("Google ainda não configurado no Supabase (Authentication → Providers → Google). Tente e-mail/senha por enquanto.", { duration: 6000 });
+      } else {
+        toast.error(msg || "Erro no login com Google. Tente e-mail/senha.");
+      }
     }
   };
 
